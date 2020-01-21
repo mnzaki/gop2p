@@ -13,8 +13,24 @@ func main() {
 	log.SetFlags(log.Ltime)
 	hostport := os.Args[1]
 	peers := os.Args[2:]
-
 	log.Printf("Peers: %v", peers)
+
+	g := crdt.MakeGCounter(1)
+	g.Increment()
+	for _, peer := range peers {
+		send, err := peering.Connect(peer)
+		if err != nil {
+			log.Printf("Error connecting: %v", err)
+		} else {
+			err := send(g)
+			if err != nil {
+				log.Printf("Error while sending: %v", err)
+			} else {
+				log.Printf("Sent %v to %v", g, peer)
+			}
+		}
+	}
+
 	err := peering.Listen(hostport, handleGCounter)
 	if err != nil {
 		log.Println(err)
