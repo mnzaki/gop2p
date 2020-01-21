@@ -11,9 +11,11 @@ import (
 )
 
 var myCounter crdt.GCounter
+var peerMap map[string]peering.Sender
 
 func main() {
 	var myId uint
+	peerMap = make(map[string]peering.Sender)
 	fmt.Sscanf(os.Args[1], "%v", &myId)
 
 	log.SetFlags(log.Ltime)
@@ -28,6 +30,7 @@ func main() {
 		if err != nil {
 			log.Printf("Error connecting: %v", err)
 		} else {
+			peerMap[peer] = send
 			err := send(myCounter)
 			if err != nil {
 				log.Printf("Error while sending: %v", err)
@@ -51,10 +54,24 @@ func handleGCounter(decoder *gob.Decoder) bool {
 		return true
 	}
 
+	oldVal := myCounter.Value()
+
 	log.Printf("MyCounter: %v", myCounter)
 	myCounter = myCounter.Merge(&g)
 	log.Printf("Received: %v", g)
 	log.Printf("MyCounter Updated: %v", myCounter)
+
+	newVal := myCounter.Value()
+
+	if oldVal != newVal {
+		for addr, send := range peerMap {
+			log.Printf("replicating to peer %v", addr)
+			err := send(myCounter)
+			if err != nil {
+				log.Printf("replication error: %v", err)
+			}
+		}
+	}
 	return false
 }
 
