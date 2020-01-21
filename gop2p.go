@@ -4,29 +4,35 @@ import (
 	"encoding/gob"
 	"log"
 	"os"
+	"fmt"
 
 	"github.com/mnzaki/gop2p/crdt"
 	"github.com/mnzaki/gop2p/peering"
 )
 
+var myCounter crdt.GCounter
+
 func main() {
+	var myId uint
+	fmt.Sscanf(os.Args[1], "%v", &myId)
+
 	log.SetFlags(log.Ltime)
-	hostport := os.Args[1]
-	peers := os.Args[2:]
+	hostport := os.Args[2]
+	peers := os.Args[3:]
 	log.Printf("Peers: %v", peers)
 
-	g := crdt.MakeGCounter(1)
-	g.Increment()
+	myCounter = crdt.MakeGCounter(crdt.ID(myId))
+	myCounter.Increment()
 	for _, peer := range peers {
 		send, err := peering.Connect(peer)
 		if err != nil {
 			log.Printf("Error connecting: %v", err)
 		} else {
-			err := send(g)
+			err := send(myCounter)
 			if err != nil {
 				log.Printf("Error while sending: %v", err)
 			} else {
-				log.Printf("Sent %v to %v", g, peer)
+				log.Printf("Sent %v to %v", myCounter, peer)
 			}
 		}
 	}
@@ -41,11 +47,14 @@ func handleGCounter(decoder *gob.Decoder) bool {
 	var g crdt.GCounter
 	err := decoder.Decode(&g)
 	if err != nil {
-		log.Fatal("decode error:", err)
+		log.Printf("decode error: %v", err)
 		return true
 	}
 
+	log.Printf("MyCounter: %v", myCounter)
+	myCounter = myCounter.Merge(&g)
 	log.Printf("Received: %v", g)
+	log.Printf("MyCounter Updated: %v", myCounter)
 	return false
 }
 
