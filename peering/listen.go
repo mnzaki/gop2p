@@ -4,13 +4,24 @@ import (
 	"encoding/gob"
 	"log"
 	"net"
+	"bufio"
 )
 
 type Handler func(*gob.Decoder) bool
+type NewPeerHandler func(string, Sender)
 
-func handleConnections(conn net.Conn, handler Handler) {
-	dec := gob.NewDecoder(conn)
+func handleConnections(conn net.Conn, handler Handler, newPeerHandler NewPeerHandler) {
 	defer conn.Close()
+
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	enc := gob.NewEncoder(rw)
+	sender := func(v interface{}) error {
+		defer rw.Flush()
+		return enc.Encode(v)
+	}
+	newPeerHandler(conn.LocalAddr().String(), sender)
+
+	dec := gob.NewDecoder(rw)
 	for {
 		quit := handler(dec)
 		if quit {
@@ -19,7 +30,7 @@ func handleConnections(conn net.Conn, handler Handler) {
 	}
 }
 
-func Listen(hostport string, handler Handler) error {
+func Listen(hostport string, handler Handler, newConnHandler NewPeerHandler) error {
 	listener, err := net.Listen("tcp", hostport)
 	if err != nil {
 		return err
@@ -32,6 +43,6 @@ func Listen(hostport string, handler Handler) error {
 			log.Println("Failed accepting a connection:", err)
 			continue
 		}
-		go handleConnections(conn, handler)
+		go handleConnections(conn, handler, newConnHandler)
 	}
 }

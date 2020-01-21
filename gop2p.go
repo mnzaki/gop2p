@@ -43,7 +43,10 @@ func main() {
 		}
 	}()
 
-	err := peering.Listen(hostport, handleGCounter)
+	err := peering.Listen(hostport, handleGCounter, func(addr string, send peering.Sender) {
+		peerMap[addr] = send
+		replicate()
+	})
 	if err != nil {
 		log.Println(err)
 	}
@@ -84,7 +87,7 @@ func replicate() {
 
 func connectToPeers(peers []string) {
 	for _, peer := range peers {
-		send, err := peering.Connect(peer)
+		send, err := peering.Connect(peer, handleGCounter)
 		if err != nil {
 			log.Printf("Error connecting: %v", err)
 		} else {
