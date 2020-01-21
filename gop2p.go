@@ -40,6 +40,20 @@ func main() {
 		}
 	}
 
+	go func() {
+		var cmd string
+		for {
+			fmt.Scanf("%v", &cmd)
+			if cmd == "i" {
+				myCounter.Increment()
+				log.Printf("Incremented to: %v", myCounter)
+				replicate()
+			} else if cmd == "p" {
+				log.Printf("%v", myCounter)
+			}
+		}
+	}()
+
 	err := peering.Listen(hostport, handleGCounter)
 	if err != nil {
 		log.Println(err)
@@ -64,14 +78,17 @@ func handleGCounter(decoder *gob.Decoder) bool {
 	newVal := myCounter.Value()
 
 	if oldVal != newVal {
-		for addr, send := range peerMap {
-			log.Printf("replicating to peer %v", addr)
-			err := send(myCounter)
-			if err != nil {
-				log.Printf("replication error: %v", err)
-			}
-		}
+		replicate()
 	}
 	return false
 }
 
+func replicate() {
+	for addr, send := range peerMap {
+		log.Printf("replicating to peer %v", addr)
+		err := send(myCounter)
+		if err != nil {
+			log.Printf("replication error: %v", err)
+		}
+	}
+}
