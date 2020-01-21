@@ -25,20 +25,7 @@ func main() {
 
 	myCounter = crdt.MakeGCounter(crdt.ID(myId))
 	myCounter.Increment()
-	for _, peer := range peers {
-		send, err := peering.Connect(peer)
-		if err != nil {
-			log.Printf("Error connecting: %v", err)
-		} else {
-			peerMap[peer] = send
-			err := send(myCounter)
-			if err != nil {
-				log.Printf("Error while sending: %v", err)
-			} else {
-				log.Printf("Sent %v to %v", myCounter, peer)
-			}
-		}
-	}
+	connectToPeers(peers)
 
 	go func() {
 		var cmd string
@@ -50,6 +37,8 @@ func main() {
 				replicate()
 			} else if cmd == "p" {
 				log.Printf("%v", myCounter)
+			} else if cmd == "c" {
+				connectToPeers(peers)
 			}
 		}
 	}()
@@ -89,6 +78,23 @@ func replicate() {
 		err := send(myCounter)
 		if err != nil {
 			log.Printf("replication error: %v", err)
+		}
+	}
+}
+
+func connectToPeers(peers []string) {
+	for _, peer := range peers {
+		send, err := peering.Connect(peer)
+		if err != nil {
+			log.Printf("Error connecting: %v", err)
+		} else {
+			peerMap[peer] = send
+			err := send(myCounter)
+			if err != nil {
+				log.Printf("Error while sending: %v", err)
+			} else {
+				log.Printf("Sent %v to %v", myCounter, peer)
+			}
 		}
 	}
 }
